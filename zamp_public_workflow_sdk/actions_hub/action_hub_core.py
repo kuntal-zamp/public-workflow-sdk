@@ -186,13 +186,25 @@ class ActionsHub:
         )
 
     @classmethod
-    def _get_action_return_type(cls, action_name: str | Callable) -> type | None:
+    def _get_action_return_type(cls, action: str | Callable) -> type | None:
         """Get the return type from action using unified Action interface."""
-        if isinstance(action_name, str):
-            name = action_name
-        else:
-            name = action_name.__name__     
         try:
+            # Get action name for return type lookup
+            if isinstance(action, str):
+                name = action
+            else:
+                # Handle bound methods (e.g., instance.method)
+                if hasattr(action, '__self__') and hasattr(action, '__name__') and action.__self__ is not None:
+                    class_name = action.__self__.__class__.__name__
+                    name = class_name
+                # Handle unbound methods (e.g., Class.method)
+                elif hasattr(action, '__qualname__') and '.' in action.__qualname__:
+                    # For qualified names like "ClassName.method", use the class name
+                    class_name = action.__qualname__.split('.')[0]
+                    name = class_name
+                else:
+                    name = action.__name__
+            
             actions = cls.get_available_actions(ActionFilter(name=name))
             if actions:
                 return actions[0].returns
