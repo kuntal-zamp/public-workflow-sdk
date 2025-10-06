@@ -2,6 +2,7 @@
 Helper functions for temporal workflow history operations.
 """
 
+from ast import Tuple
 import base64
 import structlog
 from typing import List, Optional, Dict
@@ -11,6 +12,12 @@ from zamp_public_workflow_sdk.temporal.workflow_history.constants import (
     PayloadField,
     EventTypeToAttributesKey,
     EventField,
+    WorkflowExecutionField,
+)
+
+from workflow_history.constants import (
+    EventType,
+    EventTypeToAttributesKey,
 )
 
 from zamp_public_workflow_sdk.temporal.workflow_history.models.node_payload_data import (
@@ -411,3 +418,44 @@ def extract_node_payloads(
         child_workflow_initiated_count=len(child_workflow_initiated_events),
     )
     return node_payloads
+
+def get_child_workflow_execution_info(
+    self, node_id: str
+) -> Optional[Tuple[str, str]]:
+    """
+    Get child workflow execution info (workflow_id, run_id) from CHILD_WORKFLOW_EXECUTION_STARTED event.
+
+    Args:
+        node_id: The node ID of the child workflow (e.g., "ChildWorkflow#1")
+
+    Returns:
+        Tuple of (workflow_id, run_id) if found, None otherwise
+    """
+
+    node_data = self.get_node_data(node_id)
+    if not node_data or node_id not in node_data:
+        return None
+
+    node_payload_data = node_data[node_id]
+
+    # Look for CHILD_WORKFLOW_EXECUTION_STARTED event
+    for event in node_payload_data.node_events:
+        event_type = event.get(EventField.EVENT_TYPE.value)
+        if event_type == EventType.CHILD_WORKFLOW_EXECUTION_STARTED.value:
+            attrs_key = (
+                EventTypeToAttributesKey.CHILD_WORKFLOW_EXECUTION_STARTED.value
+            )
+            if attrs_key in event:
+                attrs = event[attrs_key]
+                # Extract workflowExecution.workflowId and workflowExecution.runId
+                workflow_execution = attrs.get(WorkflowExecutionField.WORKFLOW_EXECUTION.value, {})
+                child_workflow_id = workflow_execution.get(WorkflowExecutionField.WORKFLOW_ID.value)
+                child_run_id = workflow_execution.get(WorkflowExecutionField.RUN_ID.value)
+
+                if child_workflow_id and child_run_id:
+                    return (child_workflow_id, child_run_id)
+
+    return None
+
+
+    

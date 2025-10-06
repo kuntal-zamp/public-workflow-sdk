@@ -3,6 +3,7 @@ from zamp_public_workflow_sdk.temporal.workflow_history.constants.constants impo
     PayloadField,
     EventTypeToAttributesKey,
     EventField,
+    WorkflowExecutionField,
     get_workflow_history_file_name,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "PayloadField",
     "EventTypeToAttributesKey",
     "EventField",
+    "WorkflowExecutionField",
     "get_workflow_history_file_name",
 ]

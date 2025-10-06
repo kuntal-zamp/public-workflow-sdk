@@ -46,6 +46,14 @@ class EventField(Enum):
     EVENT_TYPE = "eventType"
 
 
+class WorkflowExecutionField(Enum):
+    """Workflow execution field names."""
+
+    WORKFLOW_EXECUTION = "workflowExecution"
+    WORKFLOW_ID = "workflowId"
+    RUN_ID = "runId"
+
+
 class EventTypeToAttributesKey(Enum):
     WORKFLOW_EXECUTION_STARTED = "workflowExecutionStartedEventAttributes"
     WORKFLOW_EXECUTION_COMPLETED = "workflowExecutionCompletedEventAttributes"
