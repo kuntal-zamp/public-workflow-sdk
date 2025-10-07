@@ -13,6 +13,7 @@ from strategies.base_strategy import BaseStrategy
 from zamp_public_workflow_sdk.temporal.workflow_history.helpers import get_child_workflow_execution_info
 from zamp_public_workflow_sdk.temporal.workflow_history.models import (
     WorkflowHistory,
+    workflow_history,
 )
 from zamp_public_workflow_sdk.actions_hub import ActionsHub
 from zamp_public_workflow_sdk.temporal.workflow_history.models.fetch_temporal_workflow_history import FetchTemporalWorkflowHistoryInput, FetchTemporalWorkflowHistoryOutput
@@ -78,20 +79,29 @@ class TemporalHistoryStrategyHandler(BaseStrategy):
             return SimulationStrategyOutput(should_execute=True, node_outputs={})
 
     async def _fetch_temporal_history(
-        self, node_ids: List[str]
+        self, node_ids: List[str], workflow_id: Optional[str] = None, run_id: Optional[str] = None
     ) -> Optional[WorkflowHistory]:
         """
-        Fetch temporal workflow history for reference workflow.
+        Fetch temporal workflow history for reference workflow or child workflow.
+
+        Args:
+            node_ids: List of node execution IDs
+            workflow_id: Optional workflow ID to fetch history from (defaults to reference workflow)
+            run_id: Optional run ID to fetch history from (defaults to reference run)
 
         Returns:
             WorkflowHistory object or None if fetch fails
         """
         try:
+            # Use provided workflow_id and run_id, or fall back to reference workflow details
+            target_workflow_id = workflow_id or self.reference_workflow_id
+            target_run_id = run_id or self.reference_workflow_run_id
+            
             workflow_history = await ActionsHub.execute_child_workflow(
                 "FetchTemporalWorkflowHistoryWorkflow",
                 FetchTemporalWorkflowHistoryInput(
-                    workflow_id=self.reference_workflow_id,
-                    run_id=self.reference_workflow_run_id,
+                    workflow_id=target_workflow_id,
+                    run_id=target_run_id,
                     node_ids=node_ids,
                 ),
                 result_type=FetchTemporalWorkflowHistoryOutput
@@ -103,6 +113,8 @@ class TemporalHistoryStrategyHandler(BaseStrategy):
                 "Failed to fetch temporal history",
                 error=str(e),
                 error_type=type(e).__name__,
+                target_workflow_id=target_workflow_id,
+                target_run_id=target_run_id,
                 reference_workflow_id=self.reference_workflow_id,
                 reference_workflow_run_id=self.reference_workflow_run_id,
             )
@@ -142,7 +154,7 @@ class TemporalHistoryStrategyHandler(BaseStrategy):
 
                 # Child workflow nodes - extract execution info from parent's history
                 child_workflow_execution_info = (
-                    get_child_workflow_execution_info(
+                    temporal_history.get_child_workflow_execution_info(
                         parent_workflow_name
                     )
                 )
@@ -202,11 +214,15 @@ class TemporalHistoryStrategyHandler(BaseStrategy):
             node_ids: List of node execution IDs
 
         Returns:
-            Dictionary mapping parent_workflow_name -> list of node_ids
+            Dictionary mapping parent_workflow_name -> list of node_ids, ordered by workflow depth
         """
         nodes_by_parent_workflow = {}
 
-        for node_id in node_ids:
+        # Sort node_ids by depth (number of dots) to ensure parent workflows are processed first
+        # we process "Child#1.activity#1" first, then "Child#1.AnotherChild#1.activity#1"
+        sorted_node_ids = sorted(node_ids, key=lambda x: x.count("."))
+
+        for node_id in sorted_node_ids:
             parts = node_id.split(".")
 
             if len(parts) == 1:

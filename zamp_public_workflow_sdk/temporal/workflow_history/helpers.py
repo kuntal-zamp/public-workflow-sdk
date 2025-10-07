@@ -419,21 +419,29 @@ def extract_node_payloads(
     )
     return node_payloads
 
+
 def get_child_workflow_execution_info(
-    self, node_id: str
-) -> Optional[Tuple[str, str]]:
+    events: List[dict], node_id: str
+) -> Optional[tuple[str, str]]:
     """
     Get child workflow execution info (workflow_id, run_id) from CHILD_WORKFLOW_EXECUTION_STARTED event.
 
     Args:
+        events: List of workflow events
         node_id: The node ID of the child workflow (e.g., "ChildWorkflow#1")
 
     Returns:
         Tuple of (workflow_id, run_id) if found, None otherwise
     """
+    logger.info(
+        "Getting child workflow execution info",
+        node_id=node_id,
+        event_count=len(events),
+    )
 
-    node_data = self.get_node_data(node_id)
+    node_data = get_node_data_from_node_id(events, node_id)
     if not node_data or node_id not in node_data:
+        logger.info("No node data found for node_id", node_id=node_id)
         return None
 
     node_payload_data = node_data[node_id]
@@ -451,11 +459,12 @@ def get_child_workflow_execution_info(
                 workflow_execution = attrs.get(WorkflowExecutionField.WORKFLOW_EXECUTION.value, {})
                 child_workflow_id = workflow_execution.get(WorkflowExecutionField.WORKFLOW_ID.value)
                 child_run_id = workflow_execution.get(WorkflowExecutionField.RUN_ID.value)
+                return (child_workflow_id, child_run_id)
 
-                if child_workflow_id and child_run_id:
-                    return (child_workflow_id, child_run_id)
-
+    logger.info("No child workflow execution info found", node_id=node_id)
     return None
+
+
 
 
     

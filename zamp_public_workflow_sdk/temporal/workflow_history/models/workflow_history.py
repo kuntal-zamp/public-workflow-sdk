@@ -1,6 +1,8 @@
+from ast import Tuple
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 
+from zamp_public_workflow_sdk.temporal.workflow_history.constants.constants import EventField, EventType, EventTypeToAttributesKey, WorkflowExecutionField
 from zamp_public_workflow_sdk.temporal.workflow_history.models.node_payload_data import (
     NodePayloadData,
 )
@@ -9,6 +11,7 @@ from zamp_public_workflow_sdk.temporal.workflow_history.helpers import (
     get_output_from_node_id,
     get_node_data_from_node_id,
     extract_node_payloads,
+    get_child_workflow_execution_info,
 )
 
 
@@ -66,3 +69,17 @@ class WorkflowHistory(BaseModel):
             Dictionary mapping node_id to NodePayloadData
         """
         return extract_node_payloads(self.events, target_node_ids)
+
+    def get_child_workflow_execution_info(
+        self, node_id: str
+    ) -> Optional[Tuple[str, str]]:
+        """
+        Get child workflow execution info (workflow_id, run_id) from CHILD_WORKFLOW_EXECUTION_STARTED event.
+
+        Args:
+            node_id: The node ID of the child workflow (e.g., "ChildWorkflow#1")
+
+        Returns:
+            Tuple of (workflow_id, run_id) if found, None otherwise
+        """
+        return get_child_workflow_execution_info(self.events, node_id)
